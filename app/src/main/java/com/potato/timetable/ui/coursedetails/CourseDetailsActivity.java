@@ -16,14 +16,13 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.cardview.widget.CardView;
 
 import com.potato.timetable.R;
 import com.potato.timetable.bean.Course;
 import com.potato.timetable.ui.main.MainActivity;
 import com.potato.timetable.ui.editcourse.EditActivity;
 import com.potato.timetable.util.FileUtils;
-import com.potato.timetable.util.Utils;
+
 
 import java.util.List;
 
@@ -115,7 +114,6 @@ public class CourseDetailsActivity extends AppCompatActivity {
         textView = findViewById(R.id.tv_week_of_term);
 //        textView.setText(String.format(getString(R.string.week_of_term_format),
 //                course.getWeekOfTerm(), course.getWeekOptions()));
-        textView.setText(Utils.getFormatStringFromWeekOfTerm(course.getWeekOfTerm()));
 
         textView = findViewById(R.id.tv_teacher);
         textView.setText(course.getTeacher());

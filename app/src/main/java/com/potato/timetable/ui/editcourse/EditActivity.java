@@ -3,6 +3,7 @@ package com.potato.timetable.ui.editcourse;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -41,7 +42,6 @@ public class EditActivity extends AppCompatActivity {
     private TextView mClassNumTextView;
     private EditText mNameEditText;
     private EditText mClassRoomEditText;
-    private TextView mWeekOfTermTextView;
     private EditText mTeacherEditText;
     private OptionsPickerView pvOptions;
 
@@ -67,7 +67,6 @@ public class EditActivity extends AppCompatActivity {
         mClassNumTextView = findViewById(R.id.tv_class_num);
         mNameEditText = findViewById(R.id.name_editText);
         mClassRoomEditText = findViewById(R.id.et_class_room);
-        mWeekOfTermTextView = findViewById(R.id.tv_week_of_term);
         mTeacherEditText = findViewById(R.id.et_teacher);
         setData();
 
@@ -103,7 +102,6 @@ public class EditActivity extends AppCompatActivity {
 
             mCourse = new Course();
         }
-        ImageView imageView = findViewById(R.id.iv_bg_edit);
 
 
         mClassNumTextView.setOnClickListener(new View.OnClickListener() {
@@ -115,28 +113,6 @@ public class EditActivity extends AppCompatActivity {
                     initOptionsPicker();
                 else
                     initOptionsPicker();
-            }
-        });
-        mWeekOfTermTextView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                final WeekOfTermSelectDialog dialog = new WeekOfTermSelectDialog(EditActivity.this, mCourse.getWeekOfTerm());
-
-                dialog.setPositiveBtn(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        mCourse.setWeekOfTerm(dialog.getWeekOfTerm());
-                        mWeekOfTermTextView.setText(Utils.getFormatStringFromWeekOfTerm(mCourse.getWeekOfTerm()));
-                        dialog.dismiss();
-                    }
-                });
-                dialog.setNativeBtn(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        dialog.dismiss();
-                    }
-                });
-                dialog.show();
             }
         });
 
@@ -178,7 +154,6 @@ public class EditActivity extends AppCompatActivity {
         mCourse.setClassStart(mClassStart);
         mCourse.setDayOfWeek(mDayOfWeek);
         mCourse.setClassLength(mClassEnd - mClassStart + 1);
-
         mCourse.setTeacher(teacher);
         return true;
     }
@@ -194,6 +169,7 @@ public class EditActivity extends AppCompatActivity {
                 MainActivity.sCourseList.set(mIndex, mCourse);
             }
             new FileUtils<List<Course>>().saveToJson(this, MainActivity.sCourseList, FileUtils.TIMETABLE_FILE_NAME);
+            Log.d("TAG", "saveCourse: " + MainActivity.sCourseList);
             setUpdateResult();
             Toast.makeText(this, "保存成功", Toast.LENGTH_SHORT).show();
         }
@@ -243,11 +219,6 @@ public class EditActivity extends AppCompatActivity {
     private void setDefaultValue() {
         mTeacherEditText.setText(mCourse.getTeacher());
         mNameEditText.setText(mCourse.getName());
-        int weekOption = Utils.getWeekOptionFromWeekOfTerm(mCourse.getWeekOfTerm());
-
-
-        mWeekOfTermTextView.setText(Utils.getFormatStringFromWeekOfTerm(mCourse.getWeekOfTerm()));
-
         mClassRoomEditText.setText(mCourse.getClassRoom());
 
         int class_start = mCourse.getClassStart();
@@ -348,7 +319,7 @@ public class EditActivity extends AppCompatActivity {
         sEndItems = new ArrayList<>();
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("到");
-        for (int i = 1; i <= 12; i++) {
+        for (int i = 1; i <= 8; i++) {
             stringBuilder.append(i);
             sStartItems.add(String.valueOf(i));
             sEndItems.add(stringBuilder.toString());
@@ -365,8 +336,6 @@ public class EditActivity extends AppCompatActivity {
         int options1 = mDayOfWeek - 1;
         int options2 = mClassStart - 1;
         int options3 = mClassEnd - 1;
-
-        final String str = "%s %d-%d节";
         pvOptions = new OptionsPickerBuilder(this, new OnOptionsSelectListener() {
 
             @Override

@@ -2,7 +2,6 @@ package com.potato.timetable.ui.main;
 
 
 import android.annotation.SuppressLint;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
@@ -24,27 +23,20 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.bigkoo.pickerview.builder.OptionsPickerBuilder;
-import com.bigkoo.pickerview.listener.OnOptionsSelectChangeListener;
-import com.bigkoo.pickerview.listener.OnOptionsSelectListener;
-import com.bigkoo.pickerview.view.OptionsPickerView;
 import com.google.gson.reflect.TypeToken;
 import com.potato.timetable.R;
 import com.potato.timetable.bean.Course;
-import com.potato.timetable.bean.Time;
 import com.potato.timetable.ui.coursedetails.CourseDetailsActivity;
 import com.potato.timetable.ui.editcourse.EditActivity;
-import com.potato.timetable.util.Config;
 import com.potato.timetable.util.FileUtils;
 import com.potato.timetable.util.Utils;
 
@@ -58,14 +50,12 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     private FrameLayout mFrameLayout;
-    private TextView mWeekOfTermTextView;
     private ImageView mBgImageView;
     private ImageButton mAddImgBtn;
     private LinearLayout headerClassNumLl;
     private boolean flagUpdateCalendar = false;
 
     public static List<Course> sCourseList;
-    public static Time[] sTimes;
 
     private List<TextView> mClassTableTvList = new ArrayList<>();
     private TextView[] mClassNumHeaders = null;
@@ -74,14 +64,12 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CODE_COURSE_DETAILS = 0;
     private static final int REQUEST_CODE_COURSE_EDIT = 1;
     private static final int REQUEST_CODE_FILE_CHOOSE = 2;
-    private static final int REQUEST_CODE_CONFIG = 3;
     private static final int REQUEST_CODE_LOGIN = 4;
-    private static final int REQUEST_CODE_SCAN = 5;
-    private static final int REQUEST_CODE_SET_TIME = 6;
+
+    private static final int MAX_CLASS_NUM = 8;
 
     private static final int REQ_PER_CALENDAR = 0x11;//日历权限申请
 
-    private OptionsPickerView mOptionsPv;
 
     public static float VALUE_1DP;//1dp的值
 
@@ -116,14 +104,14 @@ public class MainActivity extends AppCompatActivity {
                 R.id.tv_sat
 
         };
-        mWeekOfTermTextView = findViewById(R.id.tv_week_of_term);
+        //添加按钮
         mAddImgBtn = findViewById(R.id.img_btn_add);
+        //背景
         mBgImageView = findViewById(R.id.iv_bg_main);
         mFrameLayout = findViewById(R.id.fl_timetable);
+        //节数目录1-12
         headerClassNumLl = findViewById(R.id.ll_header_class_num);
 
-
-        Config.readFormSharedPreferences(this);//读取当前周信息
 
         Utils.setPATH(getExternalFilesDir(null).getAbsolutePath() + File.separator + "pictures");
 
@@ -135,10 +123,10 @@ public class MainActivity extends AppCompatActivity {
         float headerClassNumWidth = getResources().getDimension(R.dimen.table_header_class_width);
         //设置课程格子高度和宽度
         setTableCellDimens(headerClassNumWidth);
-
+        //获取星期
         int week = Utils.getWeekOfDay();
+        Log.d("week", "" + week);
 
-        //Log.d("week", "" + week);
         TextView weekTv = findViewById(weekTextView[week - 1]);
         weekTv.setBackground(getDrawable(R.color.day_of_week_color));
         //设置标题为自定义toolbar
@@ -150,46 +138,6 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-
-
-    /**
-     * @return 本周应该上的课程
-     */
-    private List<Course> getCoursesNeedToTake() {
-        int currentWeek = Config.getCurrentWeek();
-        if (Utils.getWeekOfDay() == 1) {//周日插入下周课程的日程
-            currentWeek++;
-        }
-        //周日更新下周课程表
-        List<Course> tempList = new LinkedList<>();
-
-        for (Course course : sCourseList) {
-            if (courseIsThisWeek(course, currentWeek)) {
-                tempList.add(course);
-            }
-        }
-        return tempList;
-    }
-
-    /**
-     * @param courses 本周应该上的课程
-     */
-    private void addClassCalendarEvent(List<Course> courses) {
-        Calendar calendar = initCalendar();
-        int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1;
-        calendar.add(Calendar.DATE, -dayOfWeek);
-        final long start = calendar.getTimeInMillis();
-        addClassCalendarEvent(courses, start);
-    }
-
-    /**
-     * 添加一周的课程，周日为第一天
-     *
-     * @param courses 本周应该上的课程
-     * @param start   本周周日的0点0分的时间戳
-     */
-    private void addClassCalendarEvent(List<Course> courses, final long start) {
-    }
 
     /**
      * 初始化Calendar
@@ -213,7 +161,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
     /**
      * 计算课程格子的长宽
      *
@@ -233,16 +180,18 @@ public class MainActivity extends AppCompatActivity {
         sCellWidthPx = (displayWidth - headerWidth) / 7.0f;
 
         sCellHeightPx = Math.max(sCellWidthPx,
-                (displayHeight - toolbarHeight - headerWeekHeight) / (float) Config.getMaxClassNum());
+                (displayHeight - toolbarHeight - headerWeekHeight) / MAX_CLASS_NUM);
     }
 
-
+    /**
+     * 初始化课程表视图
+     */
     @SuppressLint("ClickableViewAccessibility")
     private void initFrameLayout() {
 
         LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) mFrameLayout.getLayoutParams();
         //设置课程表高度
-        layoutParams.height = (int) sCellHeightPx * Config.getMaxClassNum();
+        layoutParams.height = (int) sCellHeightPx * MAX_CLASS_NUM;
         //设置课程表宽度
         layoutParams.width = (int) sCellWidthPx * 7;
 
@@ -269,6 +218,9 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * 初始化设置按钮
+     */
     private void initAddBtn() {
         final FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) mAddImgBtn.getLayoutParams();
         layoutParams.width = (int) sCellWidthPx;
@@ -312,115 +264,17 @@ public class MainActivity extends AppCompatActivity {
 
         switch (id) {
 
-            case R.id.menu_set_week://菜单设置当前周
-                showSelectCurrentWeekDialog();
-                break;
-
             case R.id.menu_append_class://菜单添加课程
                 intent = new Intent(this, EditActivity.class);
                 startActivityForResult(intent, REQUEST_CODE_COURSE_EDIT);
                 break;
 
-            case R.id.menu_update://菜单检查更新
-                checkUpdate();
-                break;
             default:
                 break;
         }
         return super.onOptionsItemSelected(item);
     }
 
-
-    /**
-     * 更新对话框
-     *
-     * @param url
-     */
-    private void showUpdateDialog(final String url) {
-        final AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this)
-                .setTitle("提示")
-                .setMessage("检测到新版本,是否下载?").create();
-        alertDialog.setButton(DialogInterface.BUTTON_POSITIVE, "确定", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                //Log.d("update",url);
-                Uri uri = Uri.parse(url);
-                Intent intent3 = new Intent(Intent.ACTION_VIEW, uri);
-                startActivity(intent3);
-                alertDialog.dismiss();
-            }
-        });
-        alertDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "取消", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                alertDialog.dismiss();
-            }
-        });
-        alertDialog.show();
-
-    }
-
-    /**
-     * 检查更新
-     */
-    private void checkUpdate() {
-
-        final long versionCode = Utils.getLocalVersionCode(this);
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final String url = Utils.checkUpdate(versionCode);
-                mHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (url.isEmpty()) {
-                            Toast.makeText(MainActivity.this, "当前版本已经是最新版", Toast.LENGTH_SHORT).show();
-                        } else {
-                            showUpdateDialog(url);
-                        }
-                    }
-                });
-            }
-        }).start();
-    }
-
-    /**
-     * 显示周数列表,让用户从中选择
-     */
-    private void showSelectCurrentWeekDialog() {
-        //String[] items = new String[25];
-
-        final int currentWeek = Config.getCurrentWeek();
-        final String str = "当前周为：";
-        final List<String> items = new ArrayList<>();
-        for (int i = 1; i <= Config.getMaxWeekNum(); i++) {
-            //items[i] = String.valueOf(i + 1);
-            items.add("第" + i + "周");
-        }
-
-        mOptionsPv = new OptionsPickerBuilder(this, new OnOptionsSelectListener() {
-            @Override
-            public void onOptionsSelect(int options1, int options2, int options3, View v) {
-                int selectCurrentWeek = options1 + 1;
-                if (selectCurrentWeek != currentWeek) {
-                    Config.setCurrentWeek(selectCurrentWeek);
-                    updateTimetable();
-                    Config.saveCurrentWeek(MainActivity.this);
-                }
-            }
-        }).setOptionsSelectChangeListener(new OnOptionsSelectChangeListener() {
-            @Override
-            public void onOptionsSelectChanged(int options1, int options2, int options3) {
-                mOptionsPv.setTitleText(str + items.get(options1));
-            }
-        }).build();
-
-        mOptionsPv.setTitleText("当前周为:" + items.get(currentWeek - 1));
-
-        mOptionsPv.setNPicker(items, null, null);
-        mOptionsPv.setSelectOptions(currentWeek - 1);
-        mOptionsPv.show();
-    }
 
     /**
      * 获取读写权限
@@ -457,14 +311,9 @@ public class MainActivity extends AppCompatActivity {
     {
         //初始化设置按钮
         initAddBtn();
-        //设置标题中显示的当前周数
-        mWeekOfTermTextView.setText(String.format(getString(R.string.day_of_week), Config.getCurrentWeek()));
         //sCourseList=mMyDBHelper.getCourseList();
         //初始化课程表视图
         initFrameLayout();
-
-        //读取时间数据
-        sTimes = new FileUtils<Time[]>().readFromJson(this, FileUtils.TIME_FILE_NAME, Time[].class);
 
         //读取课程数据
         sCourseList = new FileUtils<ArrayList<Course>>().readFromJson(
@@ -481,7 +330,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        //Log.d("courseNum",String.valueOf(sCourseList.size()));
+        Log.d("courseNum", String.valueOf(sCourseList.size()));
 
         int size = sCourseList.size();
         if (size != 0) {
@@ -499,7 +348,7 @@ public class MainActivity extends AppCompatActivity {
     private List<Course> selectNeedToShowCourse() {
         LinkedList<Course> courseList = new LinkedList<>();
 
-        boolean[] flag = new boolean[12];//-1表示节次没有课程,其他代表占用课程的在mCourseList中的索引
+        boolean[] flag = new boolean[8];//-1表示节次没有课程,其他代表占用课程的在mCourseList中的索引
 
         int weekOfDay = 0;//记录周几
 
@@ -507,13 +356,8 @@ public class MainActivity extends AppCompatActivity {
 
         for (int index = 0; index < size; index++)//当位置有两个及以上课程时,显示本周上的课程,其他不显示
         {
-
             Course course = sCourseList.get(index);
-            if (!isThisWeekCourseNeedToShow(course.getWeekOfTerm())) {
-                continue;
-            }
-
-            //Log.d("week", course.getDayOfWeek() + "");
+            Log.d("week", course.getDayOfWeek() + "");
             if (course.getDayOfWeek() != weekOfDay) {
                 for (int i = 0; i < flag.length; i++) {//初始化flag
                     flag[i] = false;
@@ -529,14 +373,11 @@ public class MainActivity extends AppCompatActivity {
             for (i = 0; i < class_num; i++) {
                 if (flag[class_start + i - 1]) {
                     //Log.d("action", "if");
-                    if (!courseIsThisWeek(course)) {
-                        break;
-                    } else {
-                        courseList.removeLast();//删除最后一个元素
-                        courseList.add(course);
-                        for (int j = 0; j < class_num; j++) {
-                            flag[class_start + j - 1] = true;
-                        }
+                    courseList.removeLast();//删除最后一个元素
+                    courseList.add(course);
+                    for (int j = 0; j < class_num; j++) {
+                        flag[class_start + j - 1] = true;
+
                         break;
                     }
                 }
@@ -551,37 +392,12 @@ public class MainActivity extends AppCompatActivity {
         return courseList;
     }
 
-    /**
-     * 判断非本周课程是否显示
-     *
-     * @param weekOfTerm 二进制储存在第几周上课
-     */
-    private boolean isThisWeekCourseNeedToShow(int weekOfTerm) {
-        int offset = Config.getMaxWeekNum() - Config.getCurrentWeek();
-        //判断是否未到上课时间
-        if ((1 << offset) > weekOfTerm) {
-            //Log.d("course", "未开始" + Integer.toBinaryString(weekOfTerm));
-            return false;
-        }
-
-        /*for (int i = offset; i >= 0; i--) {
-            if (((1 << i) & weekOfTerm) > 0) {
-                return true;
-            }
-        }*/
-        //判断课程是否已结束
-
-
-        //(1 << (offset + 1) - 1
-        // 快速给前offset位赋值1
-        return (((1 << (offset + 1)) - 1) & weekOfTerm) > 0;
-    }
 
     private void updateClassNumHeader() {
 
-        headerClassNumLl.getLayoutParams().height = (int) sCellHeightPx * Config.getMaxClassNum();
+        headerClassNumLl.getLayoutParams().height = (int) sCellHeightPx * MAX_CLASS_NUM;
         if (mClassNumHeaders == null) {
-            mClassNumHeaders = new TextView[Config.getMaxClassNum()];
+            mClassNumHeaders = new TextView[MAX_CLASS_NUM];
             for (int i = 0, len = mClassNumHeaders.length; i < len; i++) {
                 mClassNumHeaders[i] = null;
             }
@@ -592,7 +408,7 @@ public class MainActivity extends AppCompatActivity {
         int height = (int) sCellHeightPx;
         float textSize = getResources().getDimensionPixelSize(R.dimen.class_num_header_text_size);
         StringBuilder stringBuilder = new StringBuilder("12\n22:00\n23:00".length());
-        for (int i = 0; i < Config.getMaxClassNum(); i++) {
+        for (int i = 0; i < MAX_CLASS_NUM; i++) {
             TextView textView;
             if (mClassNumHeaders[i] == null) {
                 textView = new TextView(this);
@@ -613,17 +429,11 @@ public class MainActivity extends AppCompatActivity {
             }
             stringBuilder.append(i + 1);
             textView.getLayoutParams().height = height;
-            if (sTimes != null && i < sTimes.length) {
-                stringBuilder.append('\n');
-                stringBuilder.append(sTimes[i].getStart());
-                stringBuilder.append('\n');
-                stringBuilder.append(sTimes[i].getEnd());
-            }
             textView.setText(stringBuilder.toString());
             stringBuilder.delete(0, stringBuilder.length());
         }
         //如果修改上课节数则删除多余的textview
-        for (int i = Config.getMaxClassNum(); i < mClassNumHeaders.length; i++) {
+        for (int i = MAX_CLASS_NUM; i < mClassNumHeaders.length; i++) {
             headerClassNumLl.removeViewAt(i);
         }
         flagUpdateCalendar = true;//更新日程
@@ -634,8 +444,6 @@ public class MainActivity extends AppCompatActivity {
      * 更新课程表视图
      */
     private void updateTimetable() {
-        //设置标题中显示的当前周数
-        mWeekOfTermTextView.setText(String.format(getString(R.string.day_of_week), Config.getCurrentWeek()));
 
         List<Course> courseList = selectNeedToShowCourse();
 
@@ -649,7 +457,7 @@ public class MainActivity extends AppCompatActivity {
                 ContextCompat.getColor(this, R.color.item_purple),
         };
 
-        //Log.d("size", size + "");
+        Log.d("size", size + "");
         int mClassTableListSize = mClassTableTvList.size();
 
         for (int i = 0; i < size; i++) {
@@ -665,7 +473,7 @@ public class MainActivity extends AppCompatActivity {
             if (i < mClassTableListSize) {
                 textView = mClassTableTvList.get(i);
             } else {//已有课程格数量不足新建
-                Log.d("Main","新建");
+                Log.d("Main", "新建");
                 textView = new TextView(this);
                 mClassTableTvList.add(textView);
                 mFrameLayout.addView(textView);
@@ -687,15 +495,8 @@ public class MainActivity extends AppCompatActivity {
             GradientDrawable myGrad = new GradientDrawable();//动态设置TextView背景
             myGrad.setCornerRadius(5 * VALUE_1DP);
 
-            if (courseIsThisWeek(course))//判断是否为当前周课程，如果不是，设置背景为灰色
-            {
-                myGrad.setColor(color[i % 5]);
-                textView.setText(stringBuilder.toString());
-            } else {
-                myGrad.setColor(getResources().getColor(R.color.item_gray));
-                stringBuilder.insert(0, "[非本周]\n");
-                textView.setText(stringBuilder.toString());
-            }
+            myGrad.setColor(color[i % 5]);
+            textView.setText(stringBuilder.toString());
             textView.setBackground(myGrad);
 
             stringBuilder.delete(0, stringBuilder.length());
@@ -705,7 +506,7 @@ public class MainActivity extends AppCompatActivity {
         for (int i = size, len = mClassTableTvList.size(); i < len; i++) {
             mFrameLayout.removeView(mClassTableTvList.get(i));
         }
-        for(int i=mClassTableTvList.size()-1;i>=size;i--){
+        for (int i = mClassTableTvList.size() - 1; i >= size; i--) {
             mClassTableTvList.remove(i);
         }
 
@@ -762,22 +563,6 @@ public class MainActivity extends AppCompatActivity {
         textView.setLayoutParams(layoutParams);
     }
 
-    /**
-     * @param course 课程
-     * @return 是否为本周应该上的课程
-     */
-    private boolean courseIsThisWeek(Course course) {
-        return courseIsThisWeek(course, Config.getCurrentWeek());
-    }
-
-    /**
-     * @param course      课程
-     * @param currentWeek 周数
-     * @return 是否为currentWeek周数应该上的课程
-     */
-    private boolean courseIsThisWeek(Course course, int currentWeek) {
-        return (course.getWeekOfTerm() >> (Config.getMaxWeekNum() - currentWeek) & 0x01) == 1;
-    }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -822,7 +607,7 @@ public class MainActivity extends AppCompatActivity {
                 case REQUEST_CODE_LOGIN:
                     if (data == null)
                         return;
-                        updateTimetable();
+                    updateTimetable();
                     new FileUtils<List<Course>>().saveToJson(this, sCourseList, FileUtils.TIMETABLE_FILE_NAME);
                     break;
 

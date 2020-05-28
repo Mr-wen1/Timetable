@@ -157,7 +157,9 @@
                         android:layout_width="@dimen/table_header_class_width"
                         android:layout_height="@dimen/timetable_height"
                         android:background="@color/header_class_color"
-                        android:orientation="vertical"></LinearLayout>
+                        android:orientation="vertical">
+
+                    </LinearLayout>
 
                     <FrameLayout
                         android:id="@+id/fl_timetable"

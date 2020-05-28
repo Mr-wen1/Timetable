@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.util.Log;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -54,6 +55,7 @@ public class FileUtils<T> {
 
             String json = new Gson().toJson(data);
             bw.write(json);
+            Log.d("TAG", "saveToJson: " + json);
 
         } catch (IOException e) {
             e.printStackTrace();
